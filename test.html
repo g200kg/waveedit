@@ -1,0 +1,54 @@
+<script>
+
+let counter;
+
+class A {
+  constructor(){
+    self=this;
+    A.prototype.d=()=>{++counter}
+    A.prototype.e=(function(){++counter}).bind(this);
+  }
+  a(){++counter}
+  b=()=>{++counter}
+  get c(){return()=>{++counter}}
+//  get d(){return()=>{console.log(this)}}
+}
+
+window.onload=()=>{
+  a=new A();
+
+  const t1=performance.now();
+  counter=0;
+  for(let i=0;i<1000000000;++i){
+    a.a();
+  }
+  const t2=performance.now();
+  counter=0;
+  for(let i=0;i<1000000000;++i){
+    a.b();
+  }
+  const t3=performance.now();
+  counter=0;
+  for(let i=0;i<1000000000;++i){
+    a.c();
+  }
+  const t4=performance.now();
+  counter=0;
+  for(let i=0;i<1000000000;++i){
+    a.d();
+  }
+  const t5=performance.now();
+  counter=0;
+  for(let i=0;i<1000000000;++i){
+    a.e();
+  }
+  const t6=performance.now();
+
+  console.log(t2-t1);
+  console.log(t3-t2);
+  console.log(t4-t3);
+  console.log(t5-t4);
+  console.log(t6-t5);
+}
+</script>
+<button id="a">button</button>

@@ -1,0 +1,7 @@
+<script>
+const actx = new AudioContext();
+const audiobuf = actx.createBuffer(1, 100, actx.sampleRate);
+const buf = new Float32Array(50);
+audiobuf.copyFromChannel(buf, 0, 90);
+audiobuf.copyToChannel(buf,0,90);
+</script>

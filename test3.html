@@ -1,0 +1,32 @@
+<script>
+
+
+
+window.onload=()=>{
+  rate = 3000;
+  tune = 440;
+  actx = new AudioContext();
+  b = new Float32Array(rate);  
+  buf = actx.createBuffer(1,rate,rate);
+  for(let i = 0; i < rate; ++i){
+    b[i] = Math.sin(tune*i/rate*2*Math.PI);
+  }
+  buf.copyToChannel(b,0,0);
+  src = new AudioBufferSourceNode(actx, {buffer:buf});
+  src.connect(actx.destination);
+}
+
+function Start(){
+  actx.resume();
+  src.start();
+}
+
+async function Load(file){
+    const res = await fetch(file);
+    const buff = await res.arrayBuffer();
+    const abuf = await this.actx.decodeAudioData(buff);
+    return abuf;
+  }
+
+</script>
+<button onclick="Start()">Start</button>

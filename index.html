@@ -1,0 +1,1288 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css?family=Audiowide" rel="stylesheet">
+<style>
+html{
+  padding:0;
+  margin:0;
+}
+body{
+  background:#222;
+  padding:0;
+  margin:0;
+}
+ul, li {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+#header{
+  font-family: 'Audiowide', cursive;
+  font-size:20px;
+  position:relative;
+  margin:0px;
+  padding:8px;
+  background:#ddf;
+  box-shadow: 0px 2px 3px 0px rgba(0,0,0,0.5);
+  z-index:10;
+  height:45px;
+  top:0;
+  left:0;
+}
+#header img{
+  float:left;
+  width:100px;
+  margin:0px 20px 0px 0px;
+  border:0px solid #000;
+}
+.title{
+  display:inline-block;
+  font-size: 35px;
+  font-family: Audiowide;
+  font-weight:normal;
+  margin:0px 10px;
+  padding:0px;
+  color:#448;
+}
+#menubar{
+  display:block;
+  padding:0;
+  margin:0;
+}
+#micdevice{
+  font-size:11px;
+  width:280px;
+  height:25px;
+}
+#menu{
+  z-index:10;
+  display:block;
+  padding:5px;
+  height:50px;
+  background: linear-gradient(#88a, #779);
+  position: relative;
+  list-style: none;
+  font-size:12px;
+  font-family:sans-serif;
+}
+#menu li {
+  box-sizing: border-box;
+  list-style: none;
+  position: relative;
+  width:80px;
+  height:25px;
+  line-height:25px;
+  padding:0px;
+  margin:2px;
+  float: left;
+  background: linear-gradient(#eef, #dde);
+  border-radius:2px;
+  text-align: center;
+  cursor:default;
+}
+#menu li.transport{
+  height:40px;
+  width:50px;
+  font-size:9px;
+  line-height:12px;
+}
+#menu li:hover{
+  background: linear-gradient(#fe8, #ed8);
+}
+#menu > li.open{
+  background: linear-gradient(#fe8, #ed8);
+}
+#menu li ul {
+  display: none;
+  position: absolute;
+  top: 24px;
+  left:-1px;
+  width: 100%;
+  height: 0px;
+  -webkit-transition: all 1s ease;
+  transition: all 1s ease;
+  opacity:0;
+}
+#menu > li.open > ul {
+  display: block;
+  position:absolute;
+  top:28px;
+  opacity:1;
+}
+#menu li ul li {
+  padding:0px;
+  margin:0px;
+  height:25px;
+  width:120px;
+  border:1px solid #99a;
+}
+
+#menu input[type=file]{
+  display:none;
+}
+#menu input[type=checkbox]{
+  display:none;
+}
+#menu button:hover{
+  background:linear-gradient(#ffd, #ddb);
+}
+#menu button:active{
+  background:linear-gradient(#ccc, #bbb);
+}
+#menu label{
+  display:inline-block;
+  padding:0px;
+  margin:0px;
+  width:100%;
+  height:100%;
+}
+#menu label:active{
+  background:linear-gradient(#ccc, #bbb);
+}
+#menu input:checked+label{
+  background:#bbf;
+  color:#223;
+}
+#main{
+  position:relative;
+}
+.wave {
+  position:relative;
+  top:0px;
+  left:0px;
+  box-sizing: border-box;
+  border:1px solid #000;
+}
+.wave canvas {
+  box-sizing: border-box;
+  background:#236;
+}
+.wave button {
+  position:absolute;
+  left:0px;
+  top:0px;
+  display:block;
+  font-family:Yu-Gothic;
+  font-size:12px;
+  width:25px;
+  height:20px;
+}
+.dialog{
+  box-sizing:border-box;
+  font-family: sans-serif;
+  font-size:16px;
+  display:none;
+  position:absolute;
+  background:#ccf;
+  width:300px;
+  height:200px;
+  top:0;
+  bottom:0;
+  left:0;
+  right:0;
+  box-shadow: 0px 2px 3px 0px rgba(0,0,0,0.5);
+  margin:auto;
+  z-index:10;
+}
+.dialog .titlebar{
+  box-sizing:border-box;
+  box-shadow: 0px 2px 2px 0px rgba(0,0,0,0.3);
+  width:100%;
+  height:25px;
+  padding:0;
+  padding-left:10px;
+  margin:0;
+  background:#669;
+  color:#eef;
+  line-height:25px;
+}
+.dialog table, .dialog div{
+  padding:10px;
+}
+.dialog table td{
+  padding-left:10px;
+}
+.dialog input[type=text]{
+  width:80px;
+  text-align:center;
+}
+.dialog button{
+  margin:5px;
+  width:110px;
+}
+</style>
+<!--<script src="https://g200kg.github.io/webaudio-controls/webaudio-controls.js" ></script>-->
+<script src="./webaudio-controls.js"></script>
+<script>
+
+
+class Utils {
+  static CopyFromChannel(audiobuf, buf, ch, start){ // workaround for Firefox bug
+    if(start + buf.length <= audiobuf.length){
+      audiobuf.copyFromChannel(buf, ch, start);
+    }
+    else{
+      const b = new Float32Array(audiobuf.length - start);
+      audiobuf.copyFromChannel(b, ch, start);
+      buf.set(b);
+    }
+  }
+  static AudioBufferMoveData(buf, dst, src, len){
+    let data = new Float32Array(1);
+    let data8k = new Float32Array(8192);
+    if(dst < src){
+      for(let ch=0; ch<buf.numberOfChannels; ++ch){
+        for(let i=dst,j=src; i<dst+len; ++i,++j){
+          if(j+8192 < buf.length && i+8192 < buf.length){
+            Utils.CopyFromChannel(buf, data8k, ch, j);
+            buf.copyToChannel(data8k, ch, i);
+            i+=8191,j+=8191;
+          }
+          else{
+            if(j < buf.length)
+              Utils.CopyFromChannel(buf, data, ch, j);
+            else
+              data[0] = 0;
+            if(i < buf.length)
+              buf.copyToChannel(data, ch, i);
+          }
+        }
+      }
+    }
+    else{
+      for(let ch=0; ch<buf.numberOfChannels; ++ch){
+        for(let i=dst+len-1,j=src+len-1; i>=dst; --i,--j){
+          if(j < buf.length)
+            Utils.CopyFromChannel(buf, data, ch, j);
+          else
+            data[0] = 0;
+          if(i < buf.length)
+            buf.copyToChannel(data, ch, i);
+        }
+      }
+    }
+  }
+  static AudioBufferResize(actx, buf, sz){
+    const b = actx.createBuffer(buf.numberOfChannels,sz,buf.sampleRate);
+    let data = new Float32Array(1);
+    for(let ch=0; ch<buf.numberOfChannels; ++ch){
+      for(let i=0; i<sz; ++i){
+        if(i < buf.length)
+          buf.copyFromChannel(data,ch,i);
+        else
+          data[0] = 0;
+        b.copyToChannel(data, ch, i);
+      }
+    }
+    return b;
+  }
+}
+
+
+class Ruler {
+  constructor(app) {
+    this.app = app;
+    this.canvas = document.getElementById("ruler");
+    this.ctx = this.canvas.getContext("2d");
+    this.ctx.fillStyle="#0f0";
+    this.ctx.fillRect(0,0,100,10);
+    this.zoomX = 320;
+    this.offsetX = 0;
+    this.rulerX = this.canvas.height;
+    this.rulerY = 140;
+    this.Draw();
+  }
+  XtoP(x){
+    return (this.offsetX + (x - this.rulerY) * this.zoomX)|0;
+  }
+  PtoX(p){
+    return (this.rulerY + (p - this.offsetX) / this.zoomX)|0;
+  }
+  SetOffsetX(x){
+    this.offsetX = x;
+    this.Draw();
+  }
+  SetZoomX(z){
+    this.zoomX = z;
+    this.Draw();
+  }
+  Draw(){
+    this.ctx.fillStyle = "#444";
+    this.ctx.fillRect(0,0,this.canvas.width,this.rulerX);
+    this.ctx.fillStyle = "#ccc";
+    let di = this.app.actx.sampleRate;
+    let dt = 1;
+    let dp = 0;
+    let m = 0;
+    let t = 0;
+    let i = 0;
+    for(;;) {
+      let x;
+      while((x = this.PtoX(i+di)|0) < 0){
+        i+=di;
+        t+=dt;
+        ++m;
+      }
+      if(di/this.zoomX > 100){
+        di *= 0.1;
+        dt *= 0.1;
+        m = 0;
+        ++dp;
+      }
+      else
+        break;
+    }
+    for(;; i+=di){
+      const x = this.PtoX(i)|0;
+      if(x > this.canvas.width)
+        break;
+      this.ctx.fillRect(x,0,1,this.rulerX>>1);
+      if(m==5){
+        this.ctx.fillRect(x,0,1,this.rulerX);
+        this.ctx.fillText(t.toFixed(dp),x+4,this.rulerX);
+      }
+      if(m==0){
+        this.ctx.fillRect(x,0,1,this.rulerX);
+        this.ctx.fillText(t.toFixed(dp),x+4,this.rulerX);
+        m = 0;
+      }
+      m=(m+1)%10;
+      t+=dt;
+    }
+    if(this.app.playing){
+      this.ctx.fillStyle = "#0f0";
+      this.ctx.fillRect(this.PtoX(this.app.playpos)|0, 0, 1, this.rulerX);
+    }
+  }
+}
+
+
+class WaveView {
+  constructor(app, audiobuff){
+    this.app = app;
+    this.ruler = app.ruler;
+    this.div = document.createElement("div");
+    this.div.classList.add("wave");
+    this.canvas = document.createElement("canvas");
+    this.closebtn = document.createElement("button");
+    this.closebtn.innerHTML="x";
+    this.closebtn.addEventListener("click",()=>{this.app.DelTrack.bind(this.app)(this.GetTrack())});
+    this.div.appendChild(this.canvas);
+    this.div.appendChild(this.closebtn);
+    this.audiobuff = audiobuff;
+    this.ctx = this.canvas.getContext("2d");
+    this.zoomY = 1;
+    this.sel1 = 0;
+    this.sel2 = 0;
+    this.dragging = null;
+    this.canvas.addEventListener("mousemove", this.MouseMove.bind(this));
+    this.canvas.addEventListener("mousedown", this.PointerDown.bind(this));
+    this.PointerMoveBind = this.PointerMove.bind(this);
+    this.PointerUpBind = this.PointerUp.bind(this);
+    this.Draw();
+  }
+  GetTrack(){
+    for(let i=0;i<this.app.wave.length;++i){
+      if(this.app.wave[i]===this)
+        return i;
+    }
+  }
+  GetPos(ev){
+    const rc=this.canvas.getBoundingClientRect();
+    return {x:ev.pageX-rc.left, y:ev.pageY-rc.top};
+  }
+  HitTest(pos){
+    const px = this.ruler.XtoP(pos.x);
+    if(pos.y>this.canvas.height-6)
+      return "h";
+    if(pos.x<this.ruler.rulerY)
+      return "y";
+    if(Math.abs(pos.x - this.ruler.PtoX(this.app.sel1))<6)
+      return "1";
+    if(Math.abs(pos.x - this.ruler.PtoX(this.app.sel2))<6)
+      return "2";
+    return "c";
+  }
+  MouseMove(ev){
+    const pos = this.GetPos(ev);
+    const m = this.HitTest(pos);
+    switch(m){
+    case "1": this.canvas.style.cursor="ew-resize"; break;
+    case "2": this.canvas.style.cursor="ew-resize"; break;
+    case 'h': this.canvas.style.cursor="ns-resize"; break;
+    default: this.canvas.style.cursor="crosshair"; break;
+    }
+  }
+  PointerDown(ev){
+    const pos = this.GetPos(ev);
+    const trk = this.GetTrack();
+    if(this.app.curTrack != trk){
+      this.app.curTrack = trk;
+      this.app.Draw();
+    }
+    this.app.cursor = Math.max(0,this.ruler.XtoP(pos.x));
+    window.addEventListener("mousemove", this.PointerMoveBind);
+    window.addEventListener("mouseup", this.PointerUpBind);
+    switch(this.HitTest(pos)){
+    case "1": this.dragging = "1"; break;
+    case "2": this.dragging = "2"; break;
+    case "h": this.dragging = "h"; break;
+    case "c": this.app.sel1 = this.app.sel2 = this.app.cursor; this.dragging = "2"; break;
+    }
+    this.app.Draw();
+  }
+  PointerUp(ev){
+    const pos = this.GetPos(ev);
+    window.removeEventListener("mousemove",this.PointerMoveBind);
+    window.removeEventListener("mouseup",this.PointerUpBind);
+    this.dragging = null;
+    if(this.app.sel2 < this.app.sel1){
+      const t = this.app.sel1;
+      this.app.sel1 = this.app.sel2;
+      this.app.sel2 = t;
+    }
+  }
+  PointerMove(ev){
+    const pos = this.GetPos(ev);
+    const p = Math.max(0,this.ruler.XtoP(pos.x));
+    if(this.dragging == "1")
+      this.app.sel1 = this.app.cursor = p;
+    if(this.dragging == "2")
+      this.app.sel2 = this.app.cursor = p;
+    if(this.dragging == "h"){
+      const h = Math.max(24,pos.y);
+      this.canvas.height = h;
+      this.Draw();
+    }
+ 
+    this.app.Draw();
+  }
+  DrawRuler(isCur){
+    if(isCur)
+      this.ctx.fillStyle = "#444";
+    else
+      this.ctx.fillStyle = "#222";
+    this.ctx.fillRect(0,0,this.canvas.width,5);
+    for(let i = 0; i < this.channels; ++i){
+      const y = i * this.ywidth;
+      this.ctx.fillRect(0, y, this.ruler.rulerY, this.ywidth);
+      this.ctx.fillRect(0, y + this.ywidth, this.canvas.width, -5);
+      this.ctx.fillRect(0, y + (this.ywidth - 3) * 0.5, this.canvas.width, 1);
+    }
+
+    if(isCur)
+      this.ctx.fillStyle="#fff";
+    else
+      this.ctx.fillStyle = "#ccc";
+    for(let i = 0; i < this.channels; ++i){
+      const y = i * this.ywidth + (this.ywidth -5) * 0.5;
+      this.ctx.fillRect(this.ruler.rulerY - 10, y, 8, 1);
+      this.ctx.fillRect(this.ruler.rulerY - 10, y - this.yrange * this.zoomY, 8,1);
+      this.ctx.fillRect(this.ruler.rulerY - 10, y + this.yrange * this.zoomY, 8,1);
+      this.ctx.fillText("0", this.ruler.rulerY - 25, y+4);
+      this.ctx.fillText("+1.0", this.ruler.rulerY - 25, y - this.yrange * this.zoomY + 11);
+      this.ctx.fillText("-1.0", this.ruler.rulerY - 22, y + this.yrange * this.zoomY -3);
+    }
+  }
+  Draw(){
+    if(!this.audiobuff)
+      return;
+    this.channels = this.audiobuff.numberOfChannels;
+    this.ywidth = this.canvas.height / this.channels;
+    this.yrange = this.ywidth * 0.5 - 5;
+    const len = this.audiobuff.length;
+    const trk = this.GetTrack();
+    if(trk == this.app.curTrack)
+      this.ctx.fillStyle = "#111";
+    else
+      this.ctx.fillStyle = "#222";
+    this.ctx.fillRect(0,0,this.canvas.width,this.canvas.height);
+    const buff = new Float32Array((this.ruler.zoomX + 1)|0);
+    let lmn,lmx;
+    for(let ch = 0; ch <this.channels; ++ch){
+      this.ctx.fillStyle="#5d8";
+      let ycenter = ((this.ywidth * ch) + this.ywidth * 0.5)|0;
+      lmn = lmx = 0;
+      for(let x = 0; x < this.canvas.width; ++x){
+        const xoff = (this.ruler.offsetX + (x - this.ruler.rulerY) * this.ruler.zoomX)|0;
+        if(xoff>=0 && xoff<len){
+          Utils.CopyFromChannel(this.audiobuff, buff, ch, xoff);
+          let mn = 1000, mx = -1000;
+          for(let xx = 0; xx < this.ruler.zoomX; ++xx){
+            const d = buff[xx];
+            if(d < mn) mn = d;
+            if(d > mx) mx = d;
+          }
+          if(mn>lmx) mn=lmx;
+          if(mx<lmn) mx=lmn;
+          this.ctx.fillRect(x, ycenter-mn*this.yrange*this.zoomY,1,Math.min(-1,-(mx-mn)*this.yrange*this.zoomY));
+          lmn = mn, lmx = mx;
+        }
+      }
+      if(trk == this.app.curTrack){
+        this.ctx.fillStyle = "#00c";
+        this.ctx.globalCompositeOperation = "lighter";
+        const x1 = Math.max(this.ruler.rulerY, this.ruler.PtoX(this.app.sel1));
+        const x2 = this.ruler.PtoX(this.app.sel2);
+        this.ctx.fillRect(x1,ycenter-this.yrange, x2-x1, this.yrange*2);
+        this.ctx.globalCompositeOperation = "source-over";
+      }
+      const x = this.ruler.PtoX(this.app.cursor);
+      if(x>=this.ruler.rulerY){
+        this.ctx.fillStyle="#fff";
+        this.ctx.fillRect(x,0,1,this.canvas.height);
+      }
+    }
+    this.DrawRuler(trk == this.app.curTrack);
+  }
+  SetPosition(x, z){
+    this.offsetX = x;
+    this.zoomX = z;
+    this.Draw();
+  }
+  SetZoomX(z){
+    this.zoomX = z;
+    this.Draw();
+  }
+  SetOffsetX(x){
+    this.offsetX = x;
+    this.Draw();
+  }
+}
+
+
+class App {
+  constructor() {
+    this.actx = new AudioContext();
+    this.playing = 0;
+    this.playpos = 0;
+    this.ruler = new Ruler(this);
+    this.wave = [];
+    this.curTrack = -1;
+    this.cursor = 0;
+    this.sel1 = 0;
+    this.sel2 = 0;
+    this.clipboard = null;
+    document.getElementById("play").addEventListener("click", this.Play.bind(this));
+    document.getElementById("stop").addEventListener("click", this.Stop.bind(this));
+    document.getElementById("loop").addEventListener("change", this.Loop.bind(this));
+    document.getElementById("rec").addEventListener("click", this.Rec.bind(this));
+    document.getElementById("file").addEventListener("click", this.MenuToggle.bind(this));
+    document.getElementById("edit").addEventListener("click", this.MenuToggle.bind(this));
+    document.getElementById("effect").addEventListener("click", this.MenuToggle.bind(this));
+    document.getElementById("volume").addEventListener("click", this.OpenDialog.bind(this));
+    document.getElementById("normalize").addEventListener("click", this.OpenDialog.bind(this));
+    document.getElementById("fadeinout").addEventListener("click", this.OpenDialog.bind(this));
+
+    document.addEventListener("wheel", this.Wheel.bind(this),{passive:false});
+    document.addEventListener("click", this.MenuClose.bind(this));
+    this.LoadUrl("./loop.wav");
+    window.addEventListener("dragover", this.DragOver.bind(this));
+    window.addEventListener("dragleave", this.DragLeave.bind(this));
+    window.addEventListener("drop", this.Drop.bind(this));
+    document.getElementById("offsetx").addEventListener("input", this.OffsetXInput.bind(this));
+    document.getElementById("zoomx").addEventListener("input", this.ZoomXInput.bind(this));
+    this.Resize();
+    this.SetZoomX(100);
+    this.EnumDevices();
+    setInterval(this.Interval.bind(this), 30);
+  }
+  EnumDevices(){
+    const sel = document.getElementById("micdevice");
+    navigator.mediaDevices.enumerateDevices().then((devices)=>{
+      devices.forEach((device)=>{
+        if(device.kind == "audioinput"){
+          const op = document.createElement("option");
+          op.innerHTML = device.label;
+          sel.appendChild(op);
+          console.log(device);
+        }
+      });
+    });
+  }
+  OpenDialog(ev){
+    document.getElementById("dlg"+ev.target.id).style.display="block";
+  }
+  MenuToggle(ev){
+    const s = ev.target.classList.contains("open");
+    this.MenuClose();
+    if(!s)
+      ev.target.classList.add("open");
+    ev.stopPropagation();
+  }
+  MenuClose(){
+    document.getElementById("file").classList.remove("open");
+    document.getElementById("edit").classList.remove("open");
+    document.getElementById("effect").classList.remove("open");
+  }
+  LoadExec(files){
+    const f = files[0];
+    if(f.type.match("audio*")){
+      const reader = new FileReader();
+      reader.onload = async (ev)=>{
+        this.curTrack = this.wave.length;
+        const ab = await this.actx.decodeAudioData(ev.target.result);
+        const c = new WaveView(this, ab);
+        this.wave.push(c);
+        document.getElementById("base").appendChild(c.div);
+        this.Resize();
+      }
+      const res = reader.readAsArrayBuffer(f);
+    }
+    else
+      alert("This is not audio file.\r\n \""+f.name+"\"");
+  }
+  New(ev){
+    console.log("New");
+    this.MenuClose();
+    while(this.wave.length>0)
+      this.DelTrack(0);
+  }
+  Load(ev){
+    console.log("load");
+    this.MenuClose();
+    const input = document.createElement("input");
+    input.setAttribute("type", "file");
+    input.setAttribute("accept", "audio/*");
+    input.onchange = (ev)=>{
+      console.log(ev.target.files)
+      this.LoadExec(ev.target.files);
+    };
+    input.click();
+  }
+  Save(){
+    console.log("save");
+    this.MenuClose();
+    const a = document.createElement('a');
+    a.href = this.ExportWav(this.wave[0].audiobuff);
+    a.download = 'test.wav';
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }
+  Test(){
+    const streamdest = new MediaStreamAudioDestinationNode(this.actx);
+    const recorder = new MediaRecorder(streamdest.stream);
+    console.log("audio/webm",MediaRecorder.isTypeSupported("audio/webm"));
+    console.log("audio/ogg",MediaRecorder.isTypeSupported("audio/ogg"));
+    console.log("audio/wav",MediaRecorder.isTypeSupported("audio/wav"));
+    console.log("audio/mp3",MediaRecorder.isTypeSupported("audio/mp3"));
+    console.log("audio/flac",MediaRecorder.isTypeSupported("audio/flac"));
+    const chunks =[];
+    recorder.addEventListener("dataavailable", (ev)=>{
+      chunks.push(ev.data);
+    });
+    recorder.addEventListener("stop", ()=>{
+      const blob = new Blob(chunks, {type:"audio/ogg"});
+      document.getElementById("audio").src = window.URL.createObjectURL(blob);
+    });
+    const src = new AudioBufferSourceNode(this.actx, {buffer:this.wave[0].audiobuff});
+    src.connect(this.actx.destination);
+    src.connect(streamdest);
+    recorder.start(100);
+    src.start();
+    setTimeout(()=>{
+      recorder.stop();
+      src.stop();
+    },1000);
+  }
+  ExportWav(audioBuffer){
+    const buffer = new ArrayBuffer(44 + audioBuffer.length * audioBuffer.numberOfChannels * 2);
+    const view = new DataView(buffer);
+    const header = [
+      'R', 'I', 'F', 'F',   0,0,0,0,         'W', 'A', 'V', 'E',  'f', 'm', 't', ' ',
+      0x10,0x00,0x00,0x00,  1,0, 2,0,        0x44,0xac,0x00,0x00, 0x10,0xb1,0x02,0x00,
+      0x04,0x00, 0x10,0x00, 'd','a','t','a', 0,0,0,0,
+    ];
+    for(let i=0; i<header.length; ++i){
+      if(typeof(header[i])=="string")
+        view.setUint8(i, header[i].charCodeAt(0));
+      else
+        view.setUint8(i, header[i]);
+    }
+    view.setUint32(4, 36 + audioBuffer.length * audioBuffer.numberOfChannels * 2, true);
+    view.setUint8(22, audioBuffer.numberOfChannels);
+    view.setUint32(24, audioBuffer.sampleRate, true);
+    view.setUint32(28, audioBuffer.sampleRate * audioBuffer.numberOfChannels * 2, true);
+    view.setUint16(32, audioBuffer.numberOfChannels * 2, true);
+    view.setUint32(40, audioBuffer.length * audioBuffer.numberOfChannels * 2, true);
+    const buf = new Float32Array(1);
+    for(let i=0; i<audioBuffer.length; ++i){
+      for(let ch=0; ch<audioBuffer.numberOfChannels; ++ch){
+        Utils.CopyFromChannel(audioBuffer, buf, ch, i);
+        const d = (Math.max(-1,Math.min(1,buf[0])) * 32767)|0;
+        const o = 44 + (i * audioBuffer.numberOfChannels + ch) * 2;
+        try {
+        view.setInt16(o, d, true);
+        } catch(e){ console.log(i,ch,o)}
+      }
+    }
+    const blob = new Blob([view], { type: 'audio/wav' });
+    const url = window.URL.createObjectURL(blob);
+    return url;
+  }
+  async LoadUrl(file){
+    const res = await fetch(file);
+    const buff = await res.arrayBuffer();
+    const abuf = await this.actx.decodeAudioData(buff);
+    this.AddTrack(abuf);
+  }
+  AddTrack(buf){
+    this.curTrack++;
+    const c = new WaveView(this, buf);
+    this.wave.push(c);
+    document.getElementById("base").appendChild(c.div);
+    this.Resize();
+  }
+  DelTrack(n){
+    document.getElementById("base").removeChild(this.wave[n].div);
+    if(n<=this.curTrack)
+      --this.curTrack;
+    this.wave.splice(n,1);
+    this.Draw();
+  }
+  SetPosition(x, z){
+    SetOffsetX(x);
+    SetZoomX(z);
+    this.Draw();
+  }
+  SetOffsetX(x){
+    this.ruler.SetOffsetX(x);
+    for(let i = 0; i < this.wave.length; ++i){
+      this.wave[i].SetOffsetX(x);
+    }
+  }
+  SetZoomX(z){
+    this.ruler.SetZoomX(z);
+    for(let i = 0; i < this.wave.length; ++i){
+      this.wave[i].SetZoomX(z);
+    }
+  }
+  OffsetXInput(ev){
+    let lenmax = 0;
+    if(this.wave.length>0){
+      for(let i = 0; i < this.wave.length; ++i){
+        if(this.wave[i].audiobuff.length > lenmax)
+          lenmax = this.wave[i].audiobuff.length;
+      }
+      const x = lenmax * ev.target.value/100;
+      this.SetOffsetX(x);
+    }
+  }
+  ZoomXInput(ev){
+    const z = Math.pow(10,ev.target.value/20)*0.2;
+    this.SetZoomX(z);
+  }
+  SetSlider(){
+    let lenmax = 0;
+    if(this.wave.length>0){
+      for(let i = 0; i < this.wave.length; ++i){
+        if(this.wave[i].audiobuff.length > lenmax)
+          lenmax = this.wave[i].audiobuff.length;
+      }
+    }
+    if(lenmax == 0)
+      document.getElementById("offsetx").value = 0;
+    else
+      document.getElementById("offsetx").value = this.ruler.offsetX / lenmax * 100;
+    document.getElementById("zoomx").value = Math.log10(this.ruler.zoomX * 5) * 20;
+  }
+  Draw(){
+    this.ruler.Draw();
+    for(let i=0; i<this.wave.length;++i){
+      this.wave[i].Draw();
+    }
+    this.SetSlider();
+  }
+  DragOver(ev){
+    ev.preventDefault();
+    ev.dataTransfer.dropEffect = 'copy';
+  }
+  DragLeave(ev){
+
+  }
+  Drop(ev){
+    console.log("Drop");
+    ev.preventDefault();
+    ev.stopPropagation();
+    const files = ev.dataTransfer.files;
+    this.LoadExec(files);
+  }
+  Wheel(ev){
+    console.log("Wheel")
+    if(ev.ctrlKey){
+      if(ev.deltaY>=0){
+        const p = this.ruler.XtoP(ev.layerX);
+        this.ruler.zoomX *= 1.2;
+        this.ruler.offsetX = p - (ev.layerX - this.ruler.rulerY) * this.ruler.zoomX;
+        this.Draw();
+      }
+      else{
+        const p = this.ruler.XtoP(ev.layerX);
+        this.ruler.zoomX /= 1.2;
+        this.ruler.offsetX = p - (ev.layerX - this.ruler.rulerY) * this.ruler.zoomX;
+        this.Draw();
+      }
+    }
+    else{
+      if(ev.deltaY<0){
+        this.ruler.offsetX += this.ruler.zoomX * 50;
+        this.Draw();
+      }
+      else{
+        this.ruler.offsetX -= this.ruler.zoomX * 50;
+        this.Draw();
+      }
+    }
+    ev.stopPropagation();
+    ev.preventDefault();
+    return false;
+  }
+  Loop(ev){
+    this.loopflag = ev.target.checked;
+    if(this.src)
+      this.src.loop = this.loopflag;
+  }
+  GetSelection(flag){
+    let start = Math.min(this.sel1,this.sel2);
+    let end = Math.max(this.sel1,this.sel2);
+    if(start == end){
+      if(!flag)
+        return null;
+      start = 0;
+      end = 0;
+      for(let i = 0; i < this.wave.length; ++i) {
+        const l = this.wave[i].audiobuff.length;
+        if(l > end)
+          end = l;
+      }
+    }
+    return {start:start, end:end};
+  }
+  GetClipboard(ch,totalch){
+    if(totalch==1){
+      if(this.clipboard.length==1)
+        return this.clipboard[0];
+      else{
+        const monoclip = new Float32Array(this.clipboard[0].length);
+        for(let i=0; i<this.clipboard[0].length; ++i){
+          monoclip[i] = (this.clipboard[0][i] + this.clipboard[1][i])*0.5;
+        }
+        return monoclip;
+      }
+    }
+    else {
+      let srcch=ch;
+      if(ch>=this.clipboard.length)
+        srcch=this.clipboard.length-1;
+      return this.clipboard[srcch];
+    }
+  }
+  VolumeSetup(ev){
+    switch(ev.target.id){
+    case "volumegain":
+      document.getElementById("volumeratio").value = Math.pow(10,ev.target.value/20);
+      document.getElementById("volumeslider").value = Math.pow(10,ev.target.value/20);
+      break;
+    case "volumeratio":
+      document.getElementById("volumegain").value = Math.log10(ev.target.value)*20;
+      document.getElementById("volumeslider").value = ev.target.value;
+      break;
+    case "volumeslider":
+      document.getElementById("volumeratio").value = Math.pow(10,ev.target.value/20);
+      document.getElementById("volumegain").value = ev.target.value;
+      break;
+    }
+  }
+  Volume(ev){
+    console.log("Volume");
+    ev.stopPropagation();
+    document.getElementById("dlgvolume").style.display="none";
+    if(this.curTrack<0)
+      return;
+    if(ev.target.innerHTML=="Cancel")
+      return;
+    this.MenuClose();
+    const sel = this.GetSelection(true);
+    const buffer = new Float32Array(sel.end - sel.start);
+    const wave = this.wave[this.curTrack];
+    const len = sel.end - sel.start;
+    const r = document.getElementById("volumeratio").value;
+    for(let ch=0; ch<wave.audiobuff.numberOfChannels; ++ch){
+      Utils.CopyFromChannel(wave.audiobuff, buffer,ch,sel.start);
+      for(let i=0; i<len; ++i){
+        let d = buffer[i] * r;
+        if(d > 1.0) d = 1.0;
+        if(d < -1.0) d = -1.0;
+        buffer[i] = d;
+      }
+      wave.audiobuff.copyToChannel(buffer,ch,sel.start);
+    }
+    this.Draw();
+  }
+  FadeInOutSetup(ev){
+    switch(ev.target.id){
+    case "fadecurve":
+      document.getElementById("fadecurveslider").value = ev.target.value;
+      break;
+    case "fadecurveslider":
+      document.getElementById("fadecurve").value = ev.target.value;
+      break;
+    }
+  }
+  FadeInOutCurve(r,c){
+    const curve=[];
+    for(let i=0, r=1; i<100; ++i){
+      curve[i] = r;
+      r -= (r / (100-i));
+    }
+  }
+  FadeInOut(ev){
+    console.log("FadeInOut");
+    document.getElementById("dlgfadeinout").style.display="none";
+    ev.stopPropagation();
+    if(this.curTrack<0)
+      return;
+    if(ev.target.innerHTML=="Cancel")
+      return;
+    this.MenuClose();
+    const sel = this.GetSelection(true);
+    const buffer = new Float32Array(sel.end - sel.start);
+    const wave = this.wave[this.curTrack];
+    const curve = document.getElementById("fadecurve").value * 0.01;
+    const len = sel.end - sel.start;
+    if(document.getElementById("fadetypein").checked){
+      for(let ch=0; ch<wave.audiobuff.numberOfChannels; ++ch){
+        Utils.CopyFromChannel(wave.audiobuff, buffer,ch,sel.start);
+        for(let i=0; i<len; ++i)
+          buffer[i] *= (i / len);
+        wave.audiobuff.copyToChannel(buffer,ch,sel.start);
+      }
+    }
+    else{
+      for(let ch=0; ch<wave.audiobuff.numberOfChannels; ++ch){
+        Utils.CopyFromChannel(wave.audiobuff, buffer,ch,sel.start);
+        for(let i=0; i<len; ++i)
+          buffer[i] *= 1 - (i / len);
+        wave.audiobuff.copyToChannel(buffer,ch,sel.start);
+      }
+    }
+    this.Draw();
+  }
+  NormalizeSetup(ev){
+    switch(ev.target.id){
+    case "normalizelevel":
+      document.getElementById("normalizeslider").value = ev.target.value;
+      break;
+    case "normalizeslider":
+      document.getElementById("normalizelevel").value = ev.target.value;
+      break;
+    }
+  }
+  Normalize(ev){
+    console.log("Normalize");
+    document.getElementById("dlgnormalize").style.display="none";
+    ev.stopPropagation();
+    if(this.curTrack<0)
+      return;
+    if(ev.target.innerHTML=="Cancel")
+      return;
+    this.MenuClose();
+    const sel = this.GetSelection(true);
+    const buffer = new Float32Array(sel.end - sel.start);
+    const wave = this.wave[this.curTrack];
+    const lev = document.getElementById("normalizelevel").value;
+    let peak = 0;
+    const len = sel.end - sel.start;
+    for(let ch=0; ch<wave.audiobuff.numberOfChannels; ++ch){
+      Utils.CopyFromChannel(wave.audiobuff, buffer,ch,sel.start);
+      for(let i=0; i<len; ++i){
+        peak = Math.max(peak, Math.abs(buffer[i]));
+      }
+    }
+    if(peak>0){
+      const r = lev / peak;
+      for(let ch=0; ch<wave.audiobuff.numberOfChannels; ++ch){
+        Utils.CopyFromChannel(wave.audiobuff, buffer,ch,sel.start);
+        for(let i=0; i<len; ++i){
+          buffer[i] *= r;
+        }
+        wave.audiobuff.copyToChannel(buffer,ch,sel.start);
+      }
+    }
+    this.Draw();
+  }
+  Cut(ev){
+    console.log("Cut");
+    ev.stopPropagation();
+    this.MenuClose();
+    this.Copy(ev);
+    this.Del(ev);
+  }
+  Copy(ev){
+    console.log("Copy");
+    ev.stopPropagation();
+    this.MenuClose();
+    if(this.curTrack<0)
+      return;
+    const sel = this.GetSelection();
+    if(!sel)
+      return;
+    const w = this.wave[this.curTrack];
+    this.clipboard = [];
+    for(let ch=0; ch<w.audiobuff.numberOfChannels; ++ch){
+      this.clipboard[ch] = new Float32Array(sel.end - sel.start);
+      if(sel.start > w.audiobuff.length)
+        ;
+      else
+        Utils.CopyFromChannel(w.audiobuff, this.clipboard[ch], ch, sel.start);
+    }
+  }
+  Del(ev){
+    console.log("Del");
+    this.MenuClose();
+    ev.stopPropagation();
+    if(this.curTrack<0)
+      return;
+    const sel = this.GetSelection();
+    if(!sel)
+      return;
+    const w = this.wave[this.curTrack];
+    Utils.AudioBufferMoveData(w.audiobuff, sel.start, sel.end, w.audiobuff.length - sel.end);
+    let sz = Math.min(w.audiobuff.length, sel.start);
+    if(sel.end < w.audiobuff.length)
+      sz += w.audiobuff.length - sel.end;
+    w.audiobuff = Utils.AudioBufferResize(this.actx, w.audiobuff, sz);
+    this.cursor = sel.start;
+    this.sel1 = this.sel2 = 0;
+    this.Draw();
+  }
+  PasteInsert(ev){
+    console.log("Pastei");
+    this.MenuClose();
+    ev.stopPropagation();
+    if(this.curTrack<0)
+      return;
+    if(!this.clipboard)
+      return;
+    const w = this.wave[this.curTrack];
+    const sz = w.audiobuff.length - this.cursor;
+    w.audiobuff = Utils.AudioBufferResize(this.actx, w.audiobuff, w.audiobuff.length + this.clipboard[0].length);
+    Utils.AudioBufferMoveData(w.audiobuff, this.cursor + this.clipboard[0].length, this.cursor, sz);
+    this.PasteOverwrite(ev);
+  }
+  PasteOverwrite(ev){
+    console.log("Pasteo");
+    this.MenuClose();
+    ev.stopPropagation();
+    if(this.curTrack<0)
+      return;
+    if(!this.clipboard)
+      return;
+    const w = this.wave[this.curTrack];
+    for(let ch=0; ch<w.audiobuff.numberOfChannels; ++ch){
+      const clip = this.GetClipboard(ch, w.audiobuff.numberOfChannels);
+      if(w.audiobuff.length < clip.length + this.cursor){
+        w.audiobuff = Utils.AudioBufferResize(this.actx, w.audiobuff,this.cursor + clip.length);
+      }
+      w.audiobuff.copyToChannel(clip,ch,this.cursor);
+    }
+    this.Draw();
+  }
+  PasteNewTrack(ev){
+    console.log("Pasten");
+    this.MenuClose();
+    ev.stopPropagation();
+    if(!this.clipboard)
+      return;
+    const b = this.actx.createBuffer(this.clipboard.length,1,this.actx.sampleRate);
+    this.AddTrack(b);
+    this.cursor = 0;
+    this.PasteOverwrite(ev);
+  }
+  Rec(){
+    console.log("Rec");
+    if(this.playing)
+      return;
+    if(!navigator.mediaDevices){
+      console.log("mediaDevices error");
+      return;
+    }
+    this.actx.resume();
+    navigator.mediaDevices.getUserMedia({video:true, audio:true}).then((stream)=>{
+      const strmsrc = this.actx.createMediaStreamSource(stream);
+      const ana = this.actx.createAnalyser();
+      const gain = this.actx.createGain();
+      gain.gain.value=0;
+      strmsrc.connect(ana).connect(gain).connect(this.actx.destination);
+      setInterval(()=>{
+        const ar = new Uint8Array(320);
+        ana.getByteTimeDomainData(ar);
+        let sum=0;
+        for(let i=0; i<320; ++i)
+          sum+=ar[i];
+        console.log(sum);
+      },100);
+
+    });
+  }
+  Play(){
+    console.log("Play");
+    if(this.playing)
+      return;
+    this.src = [];
+    this.startpos = Math.min(this.sel1,this.sel2);
+    this.endpos = Math.max(this.sel1,this.sel2);
+    if(this.startpos == this.endpos){
+      this.startpos = 0;
+      this.endpos = 0;
+      for(let i = 0; i < this.wave.length; ++i) {
+        const l = this.wave[i].audiobuff.length;
+        if(l > this.endpos)
+          this.endpos = l;
+      }
+    }
+    for(let i = 0; i < this.wave.length; ++i){
+      this.src[i] = this.actx.createBufferSource();
+      const buffer = this.actx.createBuffer(this.wave[i].audiobuff.numberOfChannels, this.endpos - this.startpos, this.wave[i].audiobuff.sampleRate);
+      for(let ch=0; ch<buffer.numberOfChannels; ++ch){
+        const p = buffer.getChannelData(ch);
+        Utils.CopyFromChannel(this.wave[i].audiobuff, p, ch, this.startpos);
+      }
+      this.src[i].buffer = buffer;
+      this.src[i].loop = this.loopflag;
+      this.src[i].connect(this.actx.destination);
+    }
+    this.starttime = this.actx.currentTime+0.1;
+    this.src[0].onended = ()=>{ this.playing = 0; this.ruler.Draw();};
+    for(let i = 0; i < this.wave.length; ++i){
+      this.src[i].start(this.starttime);
+    }
+    this.playing = 1;
+    this.playpos = this.startpos;
+  }
+  Stop(){
+    console.log("Stop");
+    if(this.playing){
+      for(let i = 0; i < this.src.length; ++i)
+        this.src[i].stop();
+    }
+    this.playing = 0;
+    this.ruler.Draw();
+  }
+  Resize(){
+    console.log("Resize");
+    this.ruler.canvas.width = document.body.clientWidth;
+    this.ruler.Draw();
+    if(this.wave.length>0){
+      for(let i=0;i<this.wave.length;++i){
+        this.wave[i].canvas.width = document.body.clientWidth - 8;
+        this.wave[i].Draw();
+      }
+    }
+    const w = document.body.clientWidth * 0.83;
+    const z = document.body.clientWidth * 0.15;
+    document.getElementById("offsetx").width = w;
+    document.getElementById("zoomx").width = z;
+    document.getElementById("offsetx").style.width = w+"px";
+    document.getElementById("zoomx").style.width = z+"px";
+  }
+  Interval(){
+    if(this.playing){
+      let p = this.actx.currentTime - this.starttime;
+      if(p<0) p=0;
+      p = (p * this.actx.sampleRate) % (this.endpos - this.startpos);
+      this.playpos = this.startpos + p;
+      this.ruler.Draw();
+    }
+  }
+}
+
+let app;
+window.onload = function(){
+  app = new App();
+  window.addEventListener("resize",app.Resize.bind(app));
+}
+</script>
+</head>
+<body>
+<div id="header"><img src="images/g200kg160x80.png"/><h1 class="title">webaudio-soundedit</h1></div>
+<div id="main">
+<nav>
+<ul id="menu">
+  <li id="play" class="transport">Play<br/><img src="images/play.png"/></li>
+  <li id="stop" class="transport">Stop<br/><img src="images/stop.png"/></li>
+  <li class="transport"><a><input id="loop" type="checkbox"/><label for="loop">Loop<br/><img src="images/loop.png"/></label></a></li>
+  <li id="rec" class="transport">Rec<br/><img src="images/rec.png"/></li>
+  <li id="file">File
+    <ul>
+      <li id="new" onclick="app.New(event)">New</li>
+      <li id="load" onclick="app.Load(event)">Load</li>
+      <li id="save" onclick="app.Save(event)">Save</li>
+    </ul>
+  </li>
+  <li id="edit">
+    Edit
+    <ul>
+      <li id="cut" onclick="app.Cut(event)">Cut</li>
+      <li id="del" onclick="app.Del(event)">Delete</li>
+      <li id="copy" onclick="app.Copy(event)">Copy</li>
+      <li id="pastei" onclick="app.PasteInsert(event)">Paste (insert)</li>
+      <li id="pasteo" onclick="app.PasteOverwrite(event)">Paste (overwrite)</li>
+      <li id="pasten" onclick="app.PasteNewTrack(event)">Paste (newTrack)</li>
+    </ul>
+  </li>
+  <li id="effect">
+    Effect
+    <ul>
+      <li id="volume">Volume</li>
+      <li id="normalize">Normalize</li>
+      <li id="fadeinout">Fade-In/Out</li>
+      <li id="equalizer">Equalizer</li>
+    </ul>
+  </li>
+  <li><select id="micdevice"></select></li>
+</ul>
+</nav>
+<div id="base">
+<canvas id="ruler" width="640" height="24"></canvas><br/>
+</div>
+<webaudio-slider id="offsetx" min="0" max="100" step="0.01" height="20" direction="horz" tracking="abs"></webaudio-slider>
+<webaudio-slider id="zoomx" min="0" max="100" direction="horz" height="20" tracking="abs" value="50"></webaudio-slider>
+</div>
+<div id="dlgvolume" class="dialog">
+  <div class="titlebar">Volume</div>
+  <br/>
+  <table>
+    <tr><td>Gain (dB)</td><td><input id="volumegain" type="text" value="0" onchange="app.VolumeSetup(event)"/></td></tr>
+    <tr><td>Ratio</td><td><input id="volumeratio" type="text" value="1" onchange="app.VolumeSetup(event)"/></td></tr>
+    <tr><td colspan="2"><input id="volumeslider" type="range" min="-30" max="30" step="0.001" style="width:250px" oninput="app.VolumeSetup(event)"/></td></tr>
+  </table>
+  <div><button onclick="app.Volume(event)">OK</button><button onclick="app.Volume(event)">Cancel</button></div>
+</div>
+<div id="dlgnormalize" class="dialog">
+  <div class="titlebar">Normalize</div>
+  <br/>
+  <table>
+    <tr><td>MaxLevel</td><td><input id="normalizelevel" type="text" value="1" onchange="app.NormalizeSetup(event)"/></td></tr>
+    <tr><td colspan="2"><input id="normalizeslider" type="range" min="0.1" max="1.0" step="0.001" value="1" style="width:250px" oninput="app.NormalizeSetup(event)"/></td></tr>
+  </table>
+  <div><button onclick="app.Normalize(event)">OK</button><button onclick="app.Normalize(event)">Cancel</button></div>
+</div>
+<div id="dlgfadeinout" class="dialog">
+  <div class="titlebar">Fade-In/Out</div>
+  <br/>
+  <table>
+    <tr><td>Type</td><td><label><input id="fadetypein" type="radio" name="fadetype"/> Fade-In</label> <label><input id="fadetypeout" type="radio" name="fadetype" checked/> Fade-Out</label></td></tr>
+    <tr><td>Curve</td><td><input id="fadecurve" type="text" value="0" onchange="app.FadeInOutSetup(event)"/></td></tr>
+    <tr><td colspan="2"><input id="fadecurveslider" type="range" min="0" max="100" step="0.1" value="0" style="width:250px" oninput="app.FadeInOutSetup(event)"/></td></tr>
+  </table>
+  <div><button onclick="app.FadeInOut(event)">OK</button><button onclick="app.FadeInOut(event)">Cancel</button></div>
+</div>
+<br/>
+<audio id="audio"></audio>
+</body>
+</html>
